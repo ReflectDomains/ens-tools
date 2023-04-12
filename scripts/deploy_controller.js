@@ -6,22 +6,14 @@
 // global scope, and execute the script.
 const {ethers} = require("hardhat");
 
-const ensAddress = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
-const registrarAddress = "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85";
+const usdtAddress = "0x80258a9230383763E2A1ECa4B5675b49fdBEECbd";
+const proxy_address = "0x66694ed0C6d6ec887fD15D88550887A0db27F6E0"
 const feePercentage = 3;
 
 async function main() {
-    // deploy usdt
-    const USDT = await ethers.getContractFactory("TestUSDT");
-    const usdt = await USDT.deploy("REFLECT-USDT", "REFLECT-USDT");
-    console.log("usdt address: ", usdt.address);
-    // deploy proxy
-    const Proxy = await ethers.getContractFactory("Proxy");
-    const proxy = await Proxy.deploy(ensAddress, registrarAddress);
-    console.log("proxy address: ", proxy.address);
     // deploy controller
     const Controller = await ethers.getContractFactory("Controller");
-    const controller = await Controller.deploy(feePercentage, proxy.address, [usdt.address]);
+    const controller = await Controller.deploy(feePercentage, proxy_address, [usdtAddress]);
     console.log("controller address: ", controller.address);
 }
 

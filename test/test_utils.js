@@ -5,6 +5,10 @@ async function main() {
     const test = await Test.deploy();
 
     console.log("test contract address: ", test.address);
+    // const node = ethers.utils.namehash("reflect.eth");
+    // const label1 = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("helloworld001"));
+    // tokenID: 75697473970914694694878956018669570074168920701940220921270890409198548436729
+    // console.log(ethers.BigNumber.from(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("reflect"))))
     // console.log("pack string: ", await test.testEncodePacked(ethers.utils.formatBytes32String("hello world")));
     // console.log("ethers   tokenId",ethers.BigNumber.from(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("reflect.eth"))))
     // console.log("contract tokenId: ", await test.tokenId("reflect"));

@@ -151,7 +151,6 @@ contract Controller is Ownable {
         require(domainMeta.status == SUBDOMAIN_STATUS.OPENED, "Register not open");
 
         IERC20 paymentToken = IERC20(token);
-        console.log(_calculatePayment(domain, length, token));
         require(_calculatePayment(domain, length, token) == amount, "Invalid payment amount");
         uint256 feeAmount = (amount * feePercentage) / 100;
         if (amount > 0) {
@@ -177,7 +176,7 @@ contract Controller is Ownable {
         if (pricing.mode == PRICING_MODE.FIXED) {
             return pricing.prices[0];
         }
-        if (3 <= subdomainLength || subdomainLength <= 4) {
+        if (3 <= subdomainLength && subdomainLength <= 4) {
             return pricing.prices[subdomainLength % 3];
         } else {
             return pricing.prices[2];

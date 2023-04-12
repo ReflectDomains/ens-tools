@@ -1,23 +1,31 @@
 const {ethers} = require("hardhat");
 
-async function main() {
-    // const node = ethers.utils.namehash("reflect.eth");
-    // const label1 = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("helloworld001"));
-    const owner = "0xf15e0eDf9f53B06671bDD4F48E014eb2048E1986"
-    const beneficiary = "0x3c37496E4cB8cc14913caDec6dD3EBf828f19C51"
-    const resolver = "0xd7a4F6473f32aC2Af804B3686AE8F1932bC35750"
-    const proxy_address = "0x70Ca34ECDd341A30A111215070304Dc931D98dB9"
-    const controller_address = "0xA1EF2b86f7c409dE9775B22929880EDf11FfD072"
+const usdtAddress = "0x80258a9230383763E2A1ECa4B5675b49fdBEECbd";
+const owner = "0xf15e0eDf9f53B06671bDD4F48E014eb2048E1986"
+const beneficiary = "0x3c37496E4cB8cc14913caDec6dD3EBf828f19C51"
+const resolver = "0xd7a4F6473f32aC2Af804B3686AE8F1932bC35750"
+const proxy_address = "0x66694ed0C6d6ec887fD15D88550887A0db27F6E0"
+const controller_address = "0x33c2237fee62149FD587545639f4B6dAf8390D02"
+// const controller_address = "0xBC2697d7A9E44f115719D6Bb2642bBa10460425F"
 
-    // tokenID: 75697473970914694694878956018669570074168920701940220921270890409198548436729
-    // console.log(ethers.BigNumber.from(ethers.utils.keccak256(ethers.utils.toUtf8Bytes("reflect"))))
+async function main() {
     const [signer] = await ethers.getSigners();
     const Controller = await ethers.getContractFactory("Controller");
     const controller = await Controller.attach(controller_address).connect(signer);
-    // console.log(await controller.Domains(ethers.utils.namehash("hellogolang.eth")));
+    const USDT = await ethers.getContractFactory("TestUSDT");
+    const usdt = await USDT.attach(usdtAddress).connect(signer);
+    const pricing = [
+        {
+            "mode": 1,
+            "token": usdt.address,
+            "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
+        },
+    ]
 
-    // await controller.openRegister("hellogolang", beneficiary, {gasLimit: 300000});
-    await controller.registerSubdomain(ethers.utils.namehash("hellogolang.eth"), "wjy", beneficiary, resolver, 0, {gasLimit: 200000});
+    await controller.openRegister("hellogolang", beneficiary, pricing);
+    await usdt.mint(signer.address, 30000);
+    await usdt.approve(controller.address, 30000);
+    await controller.registerSubdomain("hellogolang", "python", beneficiary, resolver, 0, usdt.address, 10000);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
