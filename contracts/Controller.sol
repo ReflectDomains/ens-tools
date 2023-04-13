@@ -42,8 +42,8 @@ contract Controller is Ownable {
     mapping(bytes32 => Pricing) public NodePricing; // node => pricing
     mapping(address => bool) public AvailablePayments; // available payment token
 
-    event OpenRegister(address indexed owner, string indexed ensDomain);
-    event RegisterSubdomain(address indexed owner, string indexed domain);
+    event OpenRegister(address indexed owner, string ensDomain);
+    event RegisterSubdomain(address indexed owner, string domain);
 
     constructor(uint256 _feePercentage, address _proxy, address[] memory _paymentTokens) {
         feePercentage = _feePercentage;
@@ -162,7 +162,15 @@ contract Controller is Ownable {
         emit RegisterSubdomain(owner, string(abi.encodePacked(subdomain, ".", domainMeta.ensDomain)));
     }
 
-    //===================== register api =========================
+    function getPricing(bytes32[] calldata pricingHash) external view returns (Pricing[] memory){
+        Pricing[] memory pricing = new Pricing[](pricingHash.length);
+        for (uint256 i = 0; i < pricingHash.length; i++) {
+            pricing[i] = NodePricing[pricingHash[i]];
+        }
+        return pricing;
+    }
+
+    //===================== internal api =========================
     /**
      * @dev calculate payment amount.
      * @param domain the domain label, eg: "reflect.eth", use "reflect" as the label.

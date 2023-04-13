@@ -26,9 +26,9 @@ contract Proxy is IProxy {
         bytes32 _label = keccak256(bytes(label));
         return keccak256(abi.encodePacked(TLD_NODE, _label)); // use for local test
 
+        //todo: 此处逻辑有重复
         uint256 tokenId = uint256(_label);
         require(registrar.ownerOf(tokenId) == sender, "Insufficient owner permission");
-        //todo: 此处逻辑有重复
         bytes32 node = keccak256(abi.encodePacked(TLD_NODE, _label));
         if (ens.owner(node) != address(this)) {
             revert("Insufficient controller permission");

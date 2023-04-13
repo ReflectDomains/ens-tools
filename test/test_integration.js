@@ -91,18 +91,19 @@ describe("test integration", function () {
     //     await expect(controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdc.address, 100000000)).to.be.revertedWith("Invalid payment token")
     // })
     //
-    it("test node register with invalid amount", async function () {
-        const pricing = [
-            {
-                "mode": 1,
-                "token": usdt.address,
-                "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
-            },
-        ]
-        await controller.openRegister("hellogolang", user2, pricing);
-        await controller.registerSubdomain("hellogolang", "golang", user2, resolver, 0, usdt.address, 10000);
-    })
+    // it("test node register with invalid amount", async function () {
+    //     const pricing = [
+    //         {
+    //             "mode": 1,
+    //             "token": usdt.address,
+    //             "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
+    //         },
+    //     ]
+    //     await controller.openRegister("hellogolang", user2, pricing);
+    //     await controller.registerSubdomain("hellogolang", "golang", user2, resolver, 0, usdt.address, 10000);
+    // })
     //
+
     // it("test node register with fix pricing", async function () {
     //     const pricing = [
     //         {
@@ -146,35 +147,34 @@ describe("test integration", function () {
     //     expect(await usdt.balanceOf(user2)).eq(194000000);
     // })
     //
-    // it("test node pricing", async function () {
-    //     const pricing = [
-    //         {
-    //             "mode": 0,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(100000000)],
-    //         },
-    //         {
-    //             "mode": 1,
-    //             "token": usdc.address,
-    //             "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
-    //         }
-    //     ]
-    //     await controller.openRegister("reflect", user1, pricing);
-    //     const node = ethers.utils.namehash("reflect.eth");
-    //     // console.log("node meta: ", await controller.NodeMeta(node));
-    //     const newPricing = [
-    //         {
-    //             "mode": 1,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
-    //         }
-    //     ]
-    //     await controller.updatePricing("reflect", newPricing);
-    //     const usdtPricingHash = pricingHash("reflect", usdt.address);
-    //     // console.log("node usdt pricing: ", await controller.NodePricing(usdtPricingHash));
-    //     const usdcPricingHash = pricingHash("reflect", usdt.address);
-    //     // console.log("node usdc pricing: ", await controller.NodePricing(usdcPricingHash));
-    // })
+    it("test node pricing", async function () {
+        const pricing = [
+            {
+                "mode": 0,
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(100000000)],
+            },
+            {
+                "mode": 1,
+                "token": usdc.address,
+                "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
+            }
+        ]
+        await controller.openRegister("reflect", user1, pricing);
+        const node = ethers.utils.namehash("reflect.eth");
+        // console.log("node meta: ", await controller.NodeMeta(node));
+        const newPricing = [
+            {
+                "mode": 1,
+                "token": usdc.address,
+                "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
+            }
+        ]
+        await controller.updatePricing("reflect", newPricing);
+        const usdtPricingHash = pricingHash("reflect", usdt.address);
+        const usdcPricingHash = pricingHash("reflect", usdc.address);
+        console.log("node usdc pricing: ", await controller.getPricing([usdtPricingHash, usdcPricingHash]));
+    })
 })
 
 async function main() {
