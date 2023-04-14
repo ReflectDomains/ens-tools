@@ -18,6 +18,23 @@ interface IENS {
 
 interface IRegistrar {
     function ownerOf(uint256 tokenId) external view returns (address owner);
-    function reclaim(uint256 id, address owner) external;
-    function approve(address to, uint256 tokenId) external;
+}
+
+interface INameWrapper {
+    function setSubnodeRecord(
+        bytes32 parentNode,
+        string memory label,
+        address owner,
+        address resolver,
+        uint64 ttl,
+        uint32 fuses,
+        uint64 expiry
+    ) external returns (bytes32 node);
+
+    function isApprovedForAll(
+        address account,
+        address operator
+    ) external view returns (bool);
+
+    function ownerOf(uint256 id) external view returns (address);
 }

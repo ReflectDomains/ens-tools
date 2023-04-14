@@ -11,18 +11,25 @@ interface IERC20 {
 }
 
 contract Controller is Ownable {
-    enum SUBDOMAIN_STATUS {
+    enum DOMAIN_STATUS {
         UNKNOWN, // indicate domain was not registered
         OPENED, // open register
         CLOSED   // close register
     }
 
+    enum DOMAIN_VERSION {
+        V1,
+        V2
+    }
+
     struct DomainMeta {
-        SUBDOMAIN_STATUS status; // domain status
-        address owner;           // address who registered this domain
+        DOMAIN_STATUS status; // domain status
+        DOMAIN_VERSION version; // domain version
         string ensDomain;        // string type ens domain. eg: reflect.eth
-        mapping(address => uint256) amountRaised; // not use now
+        address owner;           // address who registered this domain
         address beneficiary;     // beneficiary address to receive payment
+        mapping(address => uint256) amountRaised; // not use now
+        uint256 tokenId;
     }
 
     enum PRICING_MODE {
@@ -45,7 +52,11 @@ contract Controller is Ownable {
     event OpenRegister(address indexed owner, string ensDomain);
     event RegisterSubdomain(address indexed owner, string domain);
 
-    constructor(uint256 _feePercentage, address _proxy, address[] memory _paymentTokens) {
+    constructor(
+        uint256 _feePercentage,
+        address _proxy,
+        address[] memory _paymentTokens
+    ) {
         feePercentage = _feePercentage;
         proxy = IProxy(_proxy);
         for (uint256 i = 0; i < _paymentTokens.length; i++) {
@@ -53,87 +64,110 @@ contract Controller is Ownable {
         }
     }
 
-    //===================== domain owner api =========================
-    /**
-     * @dev update node pricing:
-     *      insert new policies and update existing pricing policies have the same token address.
-     * @param label the domain label, eg: "reflect.eth", use "reflect" as the label.
-     * @param pricing list of pricing policies.
-     */
-    function updatePricing(string calldata label, Pricing[] memory pricing) public {
-        require(proxy.isOwner(label, msg.sender), "Insufficient owner permission");
-        require(pricing.length > 0, "Invalid pricing");
-
+    function _checkPricing(Pricing[] memory pricing) internal view{
+        require(pricing.length > 0, "Pricing is empty");
         for (uint256 i = 0; i < pricing.length; i++) {
             require(AvailablePayments[pricing[i].token] == true, "Invalid payment token");
             if ((pricing[i].mode == PRICING_MODE.FIXED && pricing[i].prices.length != 1) ||
                 (pricing[i].mode == PRICING_MODE.BY_DIGIT && pricing[i].prices.length != 3)
             ) {revert("Invalid pricing");}
+        }
+    }
 
-            bytes32 pricingHash = keccak256(abi.encodePacked(label, pricing[i].token));
+    function _setPricing(bytes32 node, Pricing[] memory pricing) internal {
+        for (uint256 i = 0; i < pricing.length; i++) {
+            bytes32 pricingHash = keccak256(abi.encodePacked(node, pricing[i].token));
             NodePricing[pricingHash] = pricing[i];
         }
     }
 
-    /**
-     * @dev update beneficiary address.
-     * @param label the domain label, eg: "reflect.eth", use "reflect" as the label.
-     * @param beneficiary address to receive payment.
-     */
-    function updateBeneficiary(string calldata label, address beneficiary) external {
-        require(proxy.isOwner(label, msg.sender), "Insufficient owner permission");
-        bytes32 node = proxy.ensNode(label);
+    function setPricing(bytes32 node, Pricing[] memory pricing) external {
+        _checkPricing(pricing);
         DomainMeta storage domainMeta = NodeMeta[node];
-        if (domainMeta.status != SUBDOMAIN_STATUS.UNKNOWN) {
-            domainMeta.beneficiary = beneficiary;
+        require(domainMeta.status != DOMAIN_STATUS.UNKNOWN, "Domain Unknown");
+        require(proxy.isNodeOwner(
+                domainMeta.tokenId,
+                msg.sender,
+                domainMeta.version == DOMAIN_VERSION.V2
+            ), "Insufficient permission");
+
+        for (uint256 i = 0; i < pricing.length; i++) {
+            bytes32 pricingHash = keccak256(abi.encodePacked(node, pricing[i].token));
+            NodePricing[pricingHash] = pricing[i];
         }
     }
 
-    /**
-     * @dev open register:
-            need to set the proxy contract address to controller before calling this method,
-            because proxy contract will check owner permission.
-     * @param label the domain label, eg: "reflect.eth", use "reflect" as the label.
-     * @param beneficiary address to receive payment.
-     * @param pricing list of pricing policies.
-     */
-    function openRegister(string calldata label, address beneficiary, Pricing[] memory pricing) external {
-        updatePricing(label, pricing);
-        bytes32 node = proxy.checkPermission(label, msg.sender);
-        string memory ensDomain = string(abi.encodePacked(label, ".eth"));
+    function setBeneficiary(bytes32 node, address beneficiary) external {
         DomainMeta storage domainMeta = NodeMeta[node];
-        domainMeta.status = SUBDOMAIN_STATUS.OPENED;
-        domainMeta.owner = msg.sender;
-        domainMeta.ensDomain = ensDomain;
+        require(domainMeta.status != DOMAIN_STATUS.UNKNOWN, "Domain Unknown");
+        require(proxy.isNodeOwner(
+                domainMeta.tokenId,
+                msg.sender,
+                domainMeta.version == DOMAIN_VERSION.V2
+            ), "Insufficient permission");
         domainMeta.beneficiary = beneficiary;
-        emit OpenRegister(msg.sender, ensDomain);
     }
 
-    /**
-     * @dev close register.
-     * @param label the domain label, eg: "reflect.eth", use "reflect" as the label.
-     */
-    function closeRegister(string calldata label) external {
-        require(proxy.isOwner(label, msg.sender), "Insufficient owner permission");
-        bytes32 node = proxy.ensNode(label);
+    function setDomainStatus(bytes32 node, DOMAIN_STATUS domainStatus) external {
+        require(domainStatus > DOMAIN_STATUS.UNKNOWN, "Domain Status Unknown");
         DomainMeta storage domainMeta = NodeMeta[node];
-        if (domainMeta.status == SUBDOMAIN_STATUS.OPENED) {
-            domainMeta.status = SUBDOMAIN_STATUS.CLOSED;
+        require(domainMeta.status != DOMAIN_STATUS.UNKNOWN, "Domain Unknown");
+        require(proxy.isNodeOwner(
+                domainMeta.tokenId,
+                msg.sender,
+                domainMeta.version == DOMAIN_VERSION.V2
+            ), "Insufficient permission");
+        if (domainMeta.status != domainStatus) {
+            domainMeta.status = domainStatus;
         }
     }
 
-    //===================== register api =========================
-    /**
-     * @dev register subdomain:
-            need to approve allowance of payment token to proxy address before calling this method,
-     * @param domain the domain label, eg: "reflect.eth", use "reflect" as the label.
-     * @param subdomain the subdomain label, eg: "test.reflect.eth", use "test" as the label.
-     * @param owner the subdomain owner address.
-     * @param resolver the ens domain resolver.
-     * @param ttl the ens domain ttl.
-     * @param token payment token address.
-     * @param amount payment token amount.
-     */
+    function setDomainVersion(bytes32 node, DOMAIN_VERSION domainVersion) external {
+        require(domainVersion > DOMAIN_VERSION.V1, "Invalid domain version");
+        DomainMeta storage domainMeta = NodeMeta[node];
+        require(domainMeta.status != DOMAIN_STATUS.UNKNOWN, "Domain Unknown");
+        require(proxy.isNodeOwner(
+                domainMeta.tokenId,
+                msg.sender,
+                domainMeta.version == DOMAIN_VERSION.V2
+            ), "Insufficient permission");
+        if (domainMeta.version != domainVersion) {
+            domainMeta.version = domainVersion;
+        }
+    }
+
+    function openRegister(
+        string calldata label,
+        address beneficiary,
+        Pricing[] memory pricing
+    ) external {
+        _checkPricing(pricing);
+        bytes32 node = proxy.ensNode(label);
+        bool isWrapped = proxy.isWrapped(node);
+        uint256 tokenId = isWrapped ? uint256(node) : uint256(keccak256(bytes(label)));
+        proxy.checkPermission(node, msg.sender, isWrapped);
+        require(proxy.isNodeOwner(tokenId, msg.sender, isWrapped), "Insufficient permission");
+
+        _setPricing(node, pricing);
+        DomainMeta storage domainMeta = NodeMeta[node];
+        domainMeta.status = DOMAIN_STATUS.OPENED;
+        domainMeta.version = isWrapped ? DOMAIN_VERSION.V1 : DOMAIN_VERSION.V2;
+        domainMeta.ensDomain = string(abi.encodePacked(label, ".eth"));
+        domainMeta.owner = msg.sender;
+        domainMeta.beneficiary = beneficiary;
+        domainMeta.tokenId = tokenId;
+        emit OpenRegister(msg.sender, domainMeta.ensDomain);
+    }
+
+    function _calculatePayment(bytes32 node, uint256 subdomainLength, address token) internal view returns (uint256){
+        Pricing memory pricing = NodePricing[keccak256(abi.encodePacked(node, token))];
+        require(pricing.token == token, "Invalid payment token");
+        if (pricing.mode == PRICING_MODE.FIXED) {
+            return pricing.prices[0];
+        }
+        return (3 <= subdomainLength && subdomainLength <= 4) ? pricing.prices[subdomainLength % 3] : pricing.prices[2];
+    }
+
     function registerSubdomain(
         string calldata domain,
         string memory subdomain,
@@ -148,17 +182,32 @@ contract Controller is Ownable {
 
         bytes32 node = proxy.ensNode(domain);
         DomainMeta storage domainMeta = NodeMeta[node];
-        require(domainMeta.status == SUBDOMAIN_STATUS.OPENED, "Register not open");
+        require(domainMeta.status == DOMAIN_STATUS.OPENED, "Register not open");
 
         IERC20 paymentToken = IERC20(token);
-        require(_calculatePayment(domain, length, token) == amount, "Invalid payment amount");
+        require(_calculatePayment(node, length, token) == amount, "Invalid payment amount");
         uint256 feeAmount = (amount * feePercentage) / 100;
         if (amount > 0) {
-            require(paymentToken.transferFrom(msg.sender, address(this), feeAmount), "Transfer fee failed");
-            require(paymentToken.transferFrom(msg.sender, address(domainMeta.beneficiary), amount - feeAmount), "Transfer payment failed");
+            require(paymentToken.transferFrom(
+                    msg.sender,
+                    address(this),
+                    feeAmount
+                ), "Transfer fee failed");
+            require(paymentToken.transferFrom(
+                    msg.sender,
+                    address(domainMeta.beneficiary),
+                    amount - feeAmount
+                ), "Transfer payment failed");
         }
 
-        proxy.registerSubDomain(node, keccak256(bytes(subdomain)), owner, resolver, ttl);
+        proxy.registerSubDomain(
+            node,
+            subdomain,
+            owner,
+            resolver,
+            ttl,
+            domainMeta.version == DOMAIN_VERSION.V2
+        );
         emit RegisterSubdomain(owner, string(abi.encodePacked(subdomain, ".", domainMeta.ensDomain)));
     }
 
@@ -168,27 +217,6 @@ contract Controller is Ownable {
             pricing[i] = NodePricing[pricingHash[i]];
         }
         return pricing;
-    }
-
-    //===================== internal api =========================
-    /**
-     * @dev calculate payment amount.
-     * @param domain the domain label, eg: "reflect.eth", use "reflect" as the label.
-     * @param subdomainLength the subdomain length.
-     * @param token payment token address.
-     * @return payment amount of registered pricing.
-     */
-    function _calculatePayment(string calldata domain, uint256 subdomainLength, address token) internal view returns (uint256){
-        Pricing memory pricing = NodePricing[keccak256(abi.encodePacked(domain, token))];
-        require(pricing.token == token, "Invalid payment token");
-        if (pricing.mode == PRICING_MODE.FIXED) {
-            return pricing.prices[0];
-        }
-        if (3 <= subdomainLength && subdomainLength <= 4) {
-            return pricing.prices[subdomainLength % 3];
-        } else {
-            return pricing.prices[2];
-        }
     }
 
     //===================== contract api =========================

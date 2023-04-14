@@ -3,7 +3,8 @@ const {expect} = require("chai");
 
 const ensAddress = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
 const registrarAddress = "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85";
-const resolver = "0xd7a4F6473f32aC2Af804B3686AE8F1932bC35750"
+const resolver = "0xd7a4F6473f32aC2Af804B3686AE8F1932bC35750";
+const nameWrapperAddress = "0x114D4603199df73e7D157787f8778E21fCd13066";
 const feePercentage = 3;
 
 describe("test integration", function () {
@@ -22,7 +23,7 @@ describe("test integration", function () {
         console.log("usdc address: ", usdc.address);
         // deploy proxy
         const Proxy = await ethers.getContractFactory("Proxy");
-        proxy = await Proxy.deploy(ensAddress, registrarAddress);
+        proxy = await Proxy.deploy(ensAddress, registrarAddress, nameWrapperAddress);
         console.log("proxy address: ", proxy.address);
         // deploy controller
         const Controller = await ethers.getContractFactory("Controller");
@@ -30,99 +31,104 @@ describe("test integration", function () {
         console.log("controller address: ", controller.address);
     })
 
-    pricingHash = function (label, token) {
+    pricingHash = function (node, token) {
         const hash = ethers.utils.keccak256(
-            ethers.utils.solidityPack(["string", "address"], [label, token])
+            ethers.utils.solidityPack(["bytes32", "address"], [node, token])
         );
 
         return ethers.utils.hexlify(hash);
     }
 
-    // it("test payment address", async function () {
-    //     expect(await controller.AvailablePayments(usdt.address), "usdt payment address err").to.be.true;
-    //     expect(await controller.AvailablePayments(usdc.address), "usdc payment address err").to.be.true;
-    // })
-    //
-    // it("test node register with invalid domain", async function () {
-    //     const pricing = [
-    //         {
-    //             "mode": 0,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(100000000)],
-    //         },
-    //     ]
-    //     await controller.openRegister("reflect", user1, pricing);
-    //     await expect(controller.registerSubdomain("reflect", "ab", user2, resolver, 0, usdt.address, 100000000)).to.be.revertedWith("Invalid subdomain length")
-    // })
-    //
-    // it("test node register with closed domain", async function () {
-    //     const pricing = [
-    //         {
-    //             "mode": 0,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(100000000)],
-    //         },
-    //     ]
-    //     await controller.openRegister("reflect", user1, pricing);
-    //     await expect(controller.registerSubdomain("reflect01", "wys", user2, resolver, 0, usdt.address, 100000000)).to.be.revertedWith("Register not open")
-    // })
-    //
-    // it("test node register with insufficient allowance", async function () {
-    //     const pricing = [
-    //         {
-    //             "mode": 0,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(100000000)],
-    //         },
-    //     ]
-    //     await controller.openRegister("reflect", user1, pricing);
-    //     await expect(controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdt.address, 100000000)).to.be.revertedWith("ERC20: insufficient allowance")
-    // })
-    //
-    // it("test node register with invalid token", async function () {
-    //     const pricing = [
-    //         {
-    //             "mode": 0,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(100000000)],
-    //         },
-    //     ]
-    //     await controller.openRegister("reflect", user1, pricing);
-    //     await expect(controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdc.address, 100000000)).to.be.revertedWith("Invalid payment token")
-    // })
-    //
-    // it("test node register with invalid amount", async function () {
-    //     const pricing = [
-    //         {
-    //             "mode": 1,
-    //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
-    //         },
-    //     ]
-    //     await controller.openRegister("hellogolang", user2, pricing);
-    //     await controller.registerSubdomain("hellogolang", "golang", user2, resolver, 0, usdt.address, 10000);
-    // })
-    //
+    it("test payment address", async function () {
+        expect(await controller.AvailablePayments(usdt.address), "usdt payment address err").to.be.true;
+        expect(await controller.AvailablePayments(usdc.address), "usdc payment address err").to.be.true;
+    })
+
+    it("test node register with invalid domain", async function () {
+        const pricing = [
+            {
+                "mode": 0,
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(10000)],
+            },
+        ]
+        await controller.openRegister("reflect", user1, pricing);
+        await expect(controller.registerSubdomain("reflect", "a0", user2, resolver, 0, usdt.address, 10000))
+            .to.be.revertedWith("Invalid subdomain length")
+    })
+
+    it("test node register with closed domain", async function () {
+        const pricing = [
+            {
+                "mode": 0,
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(10000)],
+            },
+        ]
+        await controller.openRegister("reflect", user1, pricing);
+        await expect(controller.registerSubdomain("reflect01", "aster", user2, resolver, 0, usdt.address, 10000))
+            .to.be.revertedWith("Register not open")
+    })
+
+    it("test node register with insufficient amount 1", async function () {
+        const pricing = [
+            {
+                "mode": 0,
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(10000)],
+            },
+        ]
+        await controller.openRegister("reflect", user1, pricing);
+        await expect(controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdt.address, 9999))
+            .to.be.revertedWith("Invalid payment amount")
+    })
+
+    it("test node register with invalid price 2", async function () {
+        const pricing = [
+            {
+                "mode": 1,
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
+            },
+        ]
+        await controller.openRegister("hellogolang", user2, pricing);
+        await expect(controller.registerSubdomain("hellogolang", "golang", user2, resolver, 0, usdt.address, 9999))
+            .to.be.revertedWith("Invalid payment amount");
+    })
+
+    it("test node register with invalid token", async function () {
+        const pricing = [
+            {
+                "mode": 0,
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(10000)],
+            },
+        ]
+        await controller.openRegister("reflect", user1, pricing);
+        await expect(controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdc.address, 10000))
+            .to.be.revertedWith("Invalid payment token")
+    })
+
 
     // it("test node register with fix pricing", async function () {
     //     const pricing = [
     //         {
     //             "mode": 0,
     //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(100000000)],
+    //             "prices": [ethers.BigNumber.from(10000)],
     //         },
     //     ]
     //
     //     await controller.openRegister("reflect", user2, pricing);
-    //     await usdt.mint(user1, 100000000);
-    //     await usdt.approve(controller.address, 100000000);
+    //     await usdt.mint(user1, 10000);
+    //     await usdt.approve(controller.address, 10000);
     //     expect(await usdt.balanceOf(controller.address)).eq(0);
-    //     expect(await usdt.balanceOf(user1)).eq(100000000);
+    //     expect(await usdt.balanceOf(user1)).eq(10000);
     //     expect(await usdt.balanceOf(user2)).eq(0);
-    //     controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdt.address, 100000000);
-    //     expect(await usdt.balanceOf(controller.address)).eq(3000000);
+    //     controller.registerSubdomain("reflect", "wys", user2, resolver, 0, usdt.address, 10000);
+    //     expect(await usdt.balanceOf(controller.address)).eq(10000 * feePercentage / 100);
     //     expect(await usdt.balanceOf(user1)).eq(0);
-    //     expect(await usdt.balanceOf(user2)).eq(97000000);
+    //     expect(await usdt.balanceOf(user2)).eq(10000 * (100 - feePercentage) / 100);
     // })
 
 
@@ -131,48 +137,47 @@ describe("test integration", function () {
     //         {
     //             "mode": 1,
     //             "token": usdt.address,
-    //             "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
+    //             "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
     //         },
     //     ]
     //
     //     await controller.openRegister("reflect", user2, pricing);
-    //     await usdt.mint(user1, 200000000);
-    //     await usdt.approve(controller.address, 200000000);
+    //     await usdt.mint(user1, 20000);
+    //     await usdt.approve(controller.address, 20000);
     //     expect(await usdt.balanceOf(controller.address)).eq(0);
-    //     expect(await usdt.balanceOf(user1)).eq(200000000);
+    //     expect(await usdt.balanceOf(user1)).eq(20000);
     //     expect(await usdt.balanceOf(user2)).eq(0);
-    //     await controller.registerSubdomain("reflect", "haha", user2, resolver, 0, usdt.address, 200000000);
-    //     expect(await usdt.balanceOf(controller.address)).eq(6000000);
+    //     await controller.registerSubdomain("reflect", "haha", user2, resolver, 0, usdt.address, 20000);
+    //     expect(await usdt.balanceOf(controller.address)).eq(20000* feePercentage / 100);
     //     expect(await usdt.balanceOf(user1)).eq(0);
-    //     expect(await usdt.balanceOf(user2)).eq(194000000);
+    //     expect(await usdt.balanceOf(user2)).eq(20000 * (100 - feePercentage) / 100);
     // })
-    //
+
     it("test node pricing", async function () {
         const pricing = [
             {
                 "mode": 0,
                 "token": usdt.address,
-                "prices": [ethers.BigNumber.from(100000000)],
+                "prices": [ethers.BigNumber.from(10000)],
             },
             {
                 "mode": 1,
                 "token": usdc.address,
-                "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
+                "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
             }
         ]
         await controller.openRegister("reflect", user1, pricing);
         const node = ethers.utils.namehash("reflect.eth");
-        // console.log("node meta: ", await controller.NodeMeta(node));
         const newPricing = [
             {
                 "mode": 1,
-                "token": usdc.address,
-                "prices": [ethers.BigNumber.from(300000000), ethers.BigNumber.from(200000000), ethers.BigNumber.from(100000000)],
+                "token": usdt.address,
+                "prices": [ethers.BigNumber.from(30000), ethers.BigNumber.from(20000), ethers.BigNumber.from(10000)],
             }
         ]
-        await controller.updatePricing("reflect", newPricing);
-        const usdtPricingHash = pricingHash("reflect", usdt.address);
-        const usdcPricingHash = pricingHash("reflect", usdc.address);
+        await controller.setPricing(node, newPricing);
+        const usdtPricingHash = pricingHash(node, usdt.address);
+        const usdcPricingHash = pricingHash(node, usdc.address);
         console.log("node usdc pricing: ", await controller.getPricing([usdtPricingHash, usdcPricingHash]));
     })
 })
