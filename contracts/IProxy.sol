@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 abstract contract IProxy {
-    function checkPermission(bytes32 node, address sender, bool isWrapped) external view virtual;
+    function checkPermission(address sender, bool isWrapped) external view virtual;
 
     function registerSubDomain(
         bytes32 parentNode,

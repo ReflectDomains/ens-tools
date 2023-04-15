@@ -7,7 +7,7 @@
 const {ethers} = require("hardhat");
 
 const usdtAddress = "0x80258a9230383763E2A1ECa4B5675b49fdBEECbd";
-const proxy_address = "0x66694ed0C6d6ec887fD15D88550887A0db27F6E0"
+const proxy_address = "0x95D6eFC280420dC124aC6AC5732793F9F06b225f"
 const feePercentage = 3;
 
 async function main() {
