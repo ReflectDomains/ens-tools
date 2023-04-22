@@ -10,6 +10,7 @@ contract Proxy is IProxy, AccessControl {
     IENS public ens;
     IRegistrar public registrar;
     INameWrapper public nameWrapper;
+
     bytes32 public constant WHITELIST_ROLE = keccak256("WHITELIST_ROLE");
     bytes32 constant public TLD_NODE = 0x93cdeb708b7545dc668eb9280176169d1c33cfd8ed6f04690a0bcc88a93fc4ae;
 
@@ -27,9 +28,9 @@ contract Proxy is IProxy, AccessControl {
 
     function checkPermission(
         address sender,
-        bool isWrapped
+        bool _isWrapped
     ) external override view {
-        if (isWrapped) {
+        if (_isWrapped) {
             require(nameWrapper.isApprovedForAll(sender, address(this)), "Insufficient operator permission");
         } else {
             require(ens.isApprovedForAll(sender, address(this)), "Insufficient operator permission");
@@ -42,11 +43,11 @@ contract Proxy is IProxy, AccessControl {
         address owner,
         address resolver,
         uint64 ttl,
-        bool isWrapped
+        bool _isWrapped
     ) external override onlyRole(WHITELIST_ROLE){
         bytes32 _label = keccak256(bytes(label));
         require(ens.owner(keccak256(abi.encodePacked(_label, parentNode))) == address(0), "Domain already registered");
-        if (isWrapped) {
+        if (_isWrapped) {
             nameWrapper.setSubnodeRecord(parentNode, label, owner, resolver, ttl, 0, 0);
         } else {
             ens.setSubnodeRecord(parentNode, _label, owner, resolver, ttl);
@@ -56,9 +57,9 @@ contract Proxy is IProxy, AccessControl {
     function isNodeOwner(
         uint256 tokenId,
         address sender,
-        bool isWrapped
+        bool _isWrapped
     ) external view override returns (bool) {
-        if (isWrapped) {
+        if (_isWrapped) {
             return nameWrapper.ownerOf(tokenId) == sender;
         }
         return registrar.ownerOf(tokenId) == sender;

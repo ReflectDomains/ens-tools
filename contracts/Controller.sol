@@ -3,6 +3,7 @@ pragma solidity ^0.8.9;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@ensdomains/ens-contracts/contracts/ethregistrar/StringUtils.sol";
 import "./IENS.sol";
 import "./IProxy.sol";
 
@@ -11,6 +12,7 @@ interface IERC20 {
 }
 
 contract Controller is Ownable {
+    using StringUtils for string;
     enum DOMAIN_STATUS {
         UNKNOWN, // indicate domain was not registered
         OPENED, // open register
@@ -42,14 +44,21 @@ contract Controller is Ownable {
         address token;     // payment token address
     }
 
-    uint256 public feePercentage;                      // platform fee percentage
     IProxy public proxy;                               // ens proxy address
+    uint256 public feePercentage;                      // platform fee percentage
     mapping(bytes32 => DomainMeta) public NodeMeta;    // node => domain meta
     mapping(bytes32 => Pricing) public NodePricing;    // node => pricing
     mapping(address => bool) public AvailablePayments; // available payment token
 
-    event OpenRegister(address indexed owner, string ensDomain);
-    event RegisterSubdomain(address indexed owner, string domain);
+    event OpenRegister(address indexed owner, address beneficiary, string ensDomain);
+    event CloseRegister(address indexed owner, string ensDomain);
+    event RegisterSubdomain(
+        address indexed owner,
+        address registrant,
+        string domain,
+        address token,
+        uint256 amount
+    );
 
     constructor(
         uint256 _feePercentage,
@@ -135,6 +144,9 @@ contract Controller is Ownable {
         if (domainMeta.status != domainStatus) {
             domainMeta.status = domainStatus;
         }
+        if (domainMeta.status == DOMAIN_STATUS.CLOSED) {
+            emit CloseRegister(msg.sender, domainMeta.ensDomain);
+        }
     }
 
     function setDomainVersion(bytes32 node, DOMAIN_VERSION domainVersion) external {
@@ -171,7 +183,7 @@ contract Controller is Ownable {
         domainMeta.owner = msg.sender;
         domainMeta.beneficiary = beneficiary;
         domainMeta.tokenId = tokenId;
-        emit OpenRegister(msg.sender, domainMeta.ensDomain);
+        emit OpenRegister(msg.sender, beneficiary, domainMeta.ensDomain);
     }
 
     //===================== domain register api =========================
@@ -185,7 +197,7 @@ contract Controller is Ownable {
         address token,
         uint256 amount
     ) external {
-        uint256 subdomainLength = bytes(subdomain).length;
+        uint256 subdomainLength = subdomain.strlen();
         require(subdomainLength >= 3, "Invalid subdomain length");
 
         bytes32 node = proxy.ensNode(domain);
@@ -216,7 +228,13 @@ contract Controller is Ownable {
             ttl,
             domainMeta.version == DOMAIN_VERSION.V2
         );
-        emit RegisterSubdomain(owner, string(abi.encodePacked(subdomain, ".", domainMeta.ensDomain)));
+        emit RegisterSubdomain(
+            owner,
+            msg.sender,
+            string(abi.encodePacked(subdomain, ".", domainMeta.ensDomain)),
+            token,
+            amount
+        );
     }
 
     //===================== public view api =========================
